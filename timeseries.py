@@ -56,7 +56,7 @@ print(dfoutput)
 ##########Estimate trend: ##########
 
 #taking the log of the data trend
-indexedDataset_logScale = np.log(indexedDataset)
+indexedDataset_logScale = np.log(indexedDf)
 plt.plot(indexedDatset_logScale)
 
 #Calculate the moving average of the same window
@@ -103,6 +103,124 @@ test_stationarity(df_diff)
 exponentialDecayedWeightedAvg = indexedDataset_logScale.ewm(halflife=12, min_periods=0, adjust=True).mean()
 plt.plot(indexedDataset_logScale)
 plt.plot(exponentialDecayedWeightedAvg, color='red')
+
+df_diff_ExpDecatAvg = indexedDatset_logScale - exponentialDecayedWeightedAvg
+test_stationarity(df_diff_ExpDecatAvg)
+#the rolling mean and std are quite stationary, and p-value is less than 0.05
+
+df_diff_Shifting = indexedDatset_logScale  - indexedDatset_logScale.shift()#lag of 1
+plt.plot(df_diff_Shifting)
+
+#ARIMA: AR as autoregression; I as integration; MA as moving average
+df_diff_Shifting.dropna(inplace=True)
+test_stationarity(df_diff_Shifting)
+#it's stationary
+
+##########Decomposition: ##########
+##########Decomposition: ##########
+
+from statsmodels.tsa.seasonal import seasonal_decompose
+decomposition = seasonal_decompose(indexedDatset_logScale)
+
+trend = decomposition.trend
+seasonal = decomposition.seasonal
+residual = decomposition.resid
+
+plt.subplot(411)
+plt.plot(indexedDatset_logScale, leabl='Original')
+plt.legend(loc='best')
+plt.subplot(412)
+plt.plot(trend, label='Trend')
+plt.legend(loc='best')
+plt.subplot(413)
+plt.plot(seasonal, label='Seasonality')
+plt.legend(loc='best')
+plt.subplot(414)
+plt.plot(seasonal, label='Residual')
+plt.legend(loc='best')
+plt.tight_layout()
+
+#Check if the noise is stationary or not
+decomposedLogData = residual
+decomposedLogData .dropna(inplace=True)
+test_stationarity(decomposedLogData)
+#not stationary, but we have the d value (residual)
+
+
+################plot ACF and PACF plots to have know the p and q value################
+################plot ACF and PACF plots to have know the p and q value################
+from statsmodels.tsa.stattools import acf, pacf
+
+lag_acf = acf(df_diff_Shifting, nlags=20)
+lag_pacf = pacf(df_diff_Shifting, nlags=20, method='ols')#old=ordinary least square method
+
+#plot ACF
+plt.subplot(121)
+plt.plot(lag_acf)
+plt.axhline(y=0,linestyle='--', color='gray')
+plt.achline(y=-1.96/np.sqrt(len(df_diff_Shifting)), linestyle='--', color='gray')
+plt.achline(y=1.96/np.sqrt(len(df_diff_Shifting)), linestyle='--', color='gray')
+plt.title('Autocorrelation Function')
+
+#plot PACF (partial autocorrelation graph):
+plt.subplot(122)
+plt.plot(lag_pacf)
+plt.axhline(y=0,linestyle='--', color='gray')
+plt.achline(y=-1.96/np.sqrt(len(df_diff_Shifting)), linestyle='--', color='gray')
+plt.achline(y=1.96/np.sqrt(len(df_diff_Shifting)), linestyle='--', color='gray')
+plt.title('Partial Autocorrelation Function')
+plt.tight_layout()
+#by looking at where the value drops to 0 for the first time, you could have a rough idea on what's p and q value
+#PACF: p value; ACF: q value are both around 2
+
+#################place p, d, q to ARIMA model################
+#################place p, d, q to ARIMA model################
+from statsmodels.tsa.arima_model import ARIMA
+
+#AR model
+model = ARIMA(indexedDataset_logScale, order=(2,1,2))#p=2,d=1,q=2
+results_AR = model.fit(disp=-1)
+plt.plot(df_diff_Shifting)
+plt.plot(results_AR.fittedvalues, color='red')
+plt.title('RSS: %.4f'% sum((results_AR.fittedvalues-df_diff_Shifting["#Passengers"])**2))#rss as residual sum of square
+print('Plotting AR model')
+#Goal: min RSS
+
+#take moving average into consideration
+model= ARIMA(indexedDataset_logScale, order = (2,1,2))
+results_ARIMA = model.fit(disp=-1)
+plt.plot(df_diff_Shifting)
+plt.plot(results_ARIMA.fittedvalues, color='red')
+plt.title('RSS: %.4f'% sum((results_ARIMA.fittedvalues-df_diff_Shifting["#Passengers"])**2))#rss as residual sum of square
+print('Plotting AR model')
+#reach the best model confirmed
+
+##################predict on time series#################
+##################predict on time series#################
+pred_ARIMA_diff = pd.Series(results_ARIMA.fittedvalues, copy=True)
+print(pred_ARIMA_diff .head())
+
+#find the cumulative sum
+#convert to cumulative sum
+pred_ARIMA_diff_cumsum = pred_ARIMA_diff.cumsum()
+print(pred_ARIMA_diff_cumsum .head())
+
+pred_ARIMA_log = pd.Series(indexedDataset_logScale['#Passengers'].ix[0], index=indexedDataset_logScale.index)
+pred_ARIMA_log = pred_ARIMA_log.add(pred_ARIMA_diff_cumsum, fill_value=0)
+pred_ARIMA_log.head()
+
+#take the exponential value to go back to the original data
+pred_ARIMA = np.exp(pred_ARIMA_log)
+plt.plot(indexedDataset)
+plt.plot(pred_ARIMA)
+
+#view the dataset
+indexedDataset_logScale#144 rows, 1 variable
+
+#predict for the next ten years (144+120)
+results_ARIMA.plot_predict(1,264)
+x=results_ARIMA.forecast(steps=120)#to get the exact data point
+
 
 
 
