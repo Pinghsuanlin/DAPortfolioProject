@@ -17,7 +17,7 @@ Yelp API:
 * Yelp_Flask.ipynb file is my past work on turning large (3TB) local dataset to Python Flask for fast data retrieval by keyword. (Data soucre: Yelp data set)
 
 Resource Planning using Critical Path Method:
-* projectPlanning.py is an unconstrained resource project that used python `cheche-pm` package to plot out *network diagram*, and *gannt chart*. 
+* projectPlanning.py is an unconstrained resource project that used python `cheche-pm`, `networkx` package to plot out *network diagram*, and *gannt chart*. <code style="color : gold">Critical Path Method (CPM) and Breadth-First Search (BFS) algorithms</code> are applied for transverse graphing.
 
 
 
